@@ -1,0 +1,33 @@
+[project]
+name = "dms"
+version = "0.1.0"
+description = "Driver monitoring system: vision-based drowsiness baseline (Pi 5 main compute)"
+readme = "README.md"
+authors = [
+    { name = "kart747", email = "194610074+kart747@users.noreply.github.com" }
+]
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "mediapipe>=1.2.2",
+    "numpy>=2.4.6",
+    # mediapipe already depends on opencv-contrib-python; adding opencv-python as
+    # well would install two packages that both own cv2/. contrib is a superset.
+    "opencv-contrib-python>=4.10",
+    "psutil>=7.2.2",
+]
+
+[project.scripts]
+dms-drowsiness = "dms.drowsiness:main"
+dms-download-model = "dms.face:download_model_cli"
+
+[build-system]
+requires = ["uv_build>=0.13.6,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

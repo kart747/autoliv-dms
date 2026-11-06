@@ -1,0 +1,19 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Runtime artefacts
+logs/
+models/*.task
+models/*.onnx
+models/*.tflite
+# Never commit pickled models
+*.pkl
+*.pickle
