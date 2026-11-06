@@ -1,0 +1,56 @@
+# Drowsiness baseline configuration.
+# All times are in seconds, all ratios are unitless.
+# The EAR/MAR thresholds are starting points. Calibrate per camera/driver: MediaPipe
+# EAR depends on camera angle and lens, and the OV9281 will read differently from a
+# laptop webcam.
+
+[camera]
+# opencv   : V4L2/USB webcam via cv2.VideoCapture (laptop now)
+# file     : a recorded video, timestamps taken from the file (repeatable tests)
+# picamera2: Pi 5 CSI camera via Picamera2 (needs venv with --system-site-packages)
+# rpicam   : Pi 5 CSI camera via an `rpicam-vid` subprocess pipe (no Python deps)
+source = "opencv"
+device = 0                # opencv: index or /dev/videoN or URL
+path = ""                 # file: path to video
+width = 640               # keep a multiple of 64 for picamera2/rpicam (OV9281 native 1280x800)
+height = 480
+fps = 30
+camera_index = 0          # picamera2/rpicam: which CSI camera (0 = OV9281, 1 = IMX296)
+mono = false              # true for OV9281: frames are delivered as single-channel gray
+force_grayscale = false   # convert colour frames to gray: exercises the IR path on a webcam
+clahe = false             # local contrast enhancement, useful under 850 nm IR
+flip_horizontal = false   # mirror the preview (display only, metrics are unaffected)
+
+[model]
+path = "models/face_landmarker.task"
+min_face_detection_confidence = 0.5
+min_face_presence_confidence = 0.5
+min_tracking_confidence = 0.5
+
+[thresholds]
+ear_closed = 0.22         # mean EAR of both eyes below this = eye "closed"
+mar_yawn = 0.5            # MAR above this = mouth wide open (yawn candidate)
+
+[perclos]
+window_s = 60.0           # rolling window
+min_coverage_s = 20.0     # PERCLOS is not used for alerts until this much face time is in the window
+
+[alerts]
+min_closure_s = 0.5       # closures shorter than this are blinks and are ignored
+warning_closure_s = 1.0   # one continuous closure this long -> Level 1
+critical_closure_s = 2.0  # one continuous closure this long (microsleep) -> Level 2
+perclos_warning = 0.15    # -> Level 1 (common "drowsy" threshold)
+perclos_critical = 0.25   # -> Level 2
+yawn_min_s = 1.5          # MAR must stay above mar_yawn this long to count as a yawn
+yawn_window_s = 300.0     # yawns are counted over this window
+yawn_warning_count = 3    # this many yawns in the window -> Level 1
+no_face_warning_s = 3.0   # face lost this long (head drop / looking away) -> Level 1
+recovery_s = 3.0          # conditions must stay clear this long before stepping down one level
+
+[display]
+show = true
+draw_landmarks = true
+
+[logging]
+csv_dir = "logs"
+print_interval_s = 2.0    # console FPS/CPU report period
