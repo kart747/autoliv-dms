@@ -61,24 +61,42 @@ def run(cfg: Config, config_path: str | None, show: bool, log: bool,
     level = AlertLevel.ALERT
     frame_idx = 0
     try:
+        # This loop runs once per camera frame (e.g. 30 times a second).
+        # Each pass: picture -> face dots -> numbers -> yes/no -> alert level.
         for frame in source.frames():
+            # STEP 1: get the picture. `frame.t` is the time it was taken, in seconds.
+            # `pre` cleans it up (grayscale / contrast) before the face model sees it.
             img = pre(frame.image)
+
+            # STEP 2: find the face. The model returns 478 (x, y) dots on the face,
+            # or None if there is no face in the picture. We time it (infer_ms)
+            # because speed matters on the Raspberry Pi.
             t0 = time.perf_counter()
             pts = landmarker.detect(to_rgb(img), frame.t)
             infer_ms = (time.perf_counter() - t0) * 1000.0
 
+            # STEP 3: turn dots into numbers, then numbers into yes/no.
+            #   EAR = how open the eyes are  (about 0.30 open, near 0 closed)
+            #   MAR = how open the mouth is  (high = yawning)
             face = pts is not None
             ear_l = ear_r = ear = mar = None
-            eye_closed = mouth_open = False
+            eye_closed = mouth_open = False  # assume "not closed" if no face
             if face:
                 ear_l, ear_r, ear, mar = face_metrics(pts)
-                eye_closed = ear < thr.ear_closed
-                mouth_open = mar > thr.mar_yawn
+                eye_closed = ear < thr.ear_closed   # e.g. 0.10 < 0.22 -> True
+                mouth_open = mar > thr.mar_yawn     # e.g. 0.70 > 0.50 -> True
 
+            # STEP 4: add this frame to the history.
+            # PERCLOS = fraction of the last 60 s the eyes were closed.
+            # Passing None means "no face this frame": skip it, don't count it.
             p = perclos.update(frame.t, eye_closed if face else None)
-            status = sm.update(frame.t, face, eye_closed, mouth_open, p, perclos.coverage_s)
-            perf.tick()
 
+            # STEP 5: decide the alert level (0 ALERT, 1 WARNING, 2 CRITICAL).
+            # The state machine remembers how long the eyes have been closed.
+            status = sm.update(frame.t, face, eye_closed, mouth_open, p, perclos.coverage_s)
+            perf.tick()  # update FPS / CPU numbers
+
+            # STEP 6: report. Print only when the level changes.
             if status.level != level:
                 print(f"[dms] t={frame.t:8.2f}s  {LEVEL_STYLE[level][0]} -> "
                       f"{LEVEL_STYLE[status.level][0]}  ({', '.join(status.reasons) or 'recovered'})")  # fmt: skip
