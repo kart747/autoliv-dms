@@ -27,11 +27,24 @@ def _dist(a: np.ndarray, b: np.ndarray) -> float:
 
 
 def eye_aspect_ratio(pts: np.ndarray, idx: tuple[int, ...]) -> float:
-    """EAR = (|p2-p6| + |p3-p5|) / (2 |p1-p4|). About 0.25-0.35 open, near 0 closed."""
+    """EAR = (|p2-p6| + |p3-p5|) / (2 |p1-p4|). About 0.25-0.35 open, near 0 closed.
+
+    Picture one eye with 6 dots:
+
+            p2    p3          <- upper eyelid
+        p1              p4    <- left and right corners
+            p6    p5          <- lower eyelid
+
+    EAR = eye height / eye width. Open eye is tall, closed eye is flat.
+    Example: width 30 px, both heights 9 px -> (9 + 9) / (2 * 30) = 0.30.
+    Dividing by the width means a face close to or far from the camera
+    gives the same answer (that is why it is "scale invariant").
+    """
     p1, p2, p3, p4, p5, p6 = (pts[i] for i in idx)
-    width = _dist(p1, p4)
-    if width < 1e-6:
+    width = _dist(p1, p4)  # corner to corner
+    if width < 1e-6:  # avoid dividing by zero on garbage input
         return 0.0
+    # two heights (left pair and right pair), averaged, divided by the width
     return (_dist(p2, p6) + _dist(p3, p5)) / (2.0 * width)
 
 
